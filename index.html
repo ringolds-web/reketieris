@@ -1,0 +1,197 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Reketieris</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&family=Special+Elite&display=swap">
+<style>
+  /* Layout: the game owns the whole window; a deco loading card sits over it until the engine starts. Single dark look on purpose. */
+  :root {
+    --ink: #0f0d0b;
+    --smoke: #1c1915;
+    --line: #3a332a;
+    --paper: #ece4d4;
+    --muted: #9a8e7c;
+    --brass: #c9a45c;
+    --blood: #c0473a;
+    /* Riga, 1993: a Soviet-style narrow grotesque for headings, a worn typewriter for the small print (as in the game). */
+    --display: "PT Sans Narrow", "Arial Narrow", "Helvetica Neue", sans-serif;
+    --label: "PT Sans Narrow", "Arial Narrow", "Helvetica Neue", sans-serif;
+    --body: "Special Elite", "Courier New", Courier, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--ink); color: var(--paper); font-family: var(--body); }
+  [hidden] { display: none !important; }
+  #unity-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; background: #000; outline: none; }
+  .loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 16px; text-align: center; padding-inline: 16px;
+    background: radial-gradient(ellipse at 50% 60%, #2a2219 0%, var(--ink) 70%); }
+  .loading h1 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(48px, 10vw, 120px); line-height: 1; margin: 0; letter-spacing: 0.02em; text-wrap: balance; }
+  .loading h1 span { color: var(--brass); }
+  .loading .tag { margin: 0; font-family: var(--label); text-transform: uppercase; letter-spacing: 0.16em; font-size: 14px; color: var(--muted); }
+  .loading p { margin: 0; font-family: var(--label); text-transform: uppercase; letter-spacing: 0.16em; font-size: 14px; color: var(--muted); }
+  .bar { width: min(340px, 70vw); height: 3px; background: var(--line); }
+  .bar i { display: block; height: 100%; width: 0%; background: var(--brass); transition: width 0.2s linear; }
+  .loading .err { color: var(--blood); max-width: 46ch; letter-spacing: 0.04em; text-transform: none; font-family: var(--body); }
+  .credits { position: fixed; left: 16px; right: 16px; bottom: 14px; margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+  .credits p { margin: 0 auto; max-width: 70ch; }
+  .credits details { margin-top: 6px; }
+  .credits summary { cursor: pointer; font-family: var(--label); text-transform: uppercase; letter-spacing: 0.14em; }
+  .credits ul { list-style: none; margin: 8px auto 0; padding: 0; max-width: 90ch; max-height: 30vh; overflow-y: auto; columns: 2 22ch; text-align: left; }
+  .credits li { break-inside: avoid; padding: 1px 0; }
+  .credits a { color: var(--paper); }
+  #warn { position: fixed; left: 0; right: 0; top: 0; font-size: 13px; }
+  #warn div { padding: 8px 12px; background: var(--smoke); border-bottom: 1px solid var(--brass); color: var(--paper); }
+  /* Top-left, the one corner the game's HUD leaves empty (health bottom-left, ammo bottom-right, wave top-right). */
+  #fullscreen { position: fixed; left: 12px; top: 12px; width: 34px; height: 34px; padding: 0; display: grid; place-items: center;
+    color: var(--paper); background: rgba(15, 13, 11, 0.5); border: 1px solid rgba(201, 164, 92, 0.7); cursor: pointer; opacity: 0.75; }
+  #fullscreen svg { width: 18px; height: 18px; display: block; }
+  #fullscreen .exit { display: none; }
+  #fullscreen.on .enter { display: none; }
+  #fullscreen.on .exit { display: block; }
+  #fullscreen:hover { opacity: 1; background: rgba(201, 164, 92, 0.25); }
+  #fullscreen:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+
+<canvas id="unity-canvas" tabindex="-1"></canvas>
+<div class="loading" id="loading">
+  <h1>Reket<span>i</span>eris</h1>
+  <p class="tag">R&#299;ga &middot; 1993 &middot; pagalms</p>
+  <div class="bar"><i id="barFill"></i></div>
+  <p id="loadText">Iel&#257;d&#275; pils&#275;tu&hellip; 0%</p>
+  <div class="credits"><p>R&#299;ga, 1993: viens pagalms starp piecst&#257;vu hru&#353;&#269;ovku un tr&#299;sst&#257;vu &#311;ie&#291;e&#316;u namu Ieri&#311;u iel&#257;. Viss, ko redzi, ir 3D mode&#316;i no Sketchfab (CC BY 4.0), ska&#326;as: Free Sound Effects Pack. M&#363;zika (magnetofons pagalm&#257;): &ldquo;Prom no pils&#275;tas&rdquo;; 100. Debija &ndash; &ldquo;Saj&#363;smu oke&#257;ns&rdquo; un v&#275;l viena dziesma. Pagalma fons: nakts ieraksts &ldquo;Neighborhood ambience: crickets and soft street&rdquo;. Vajadz&#299;ga tastat&#363;ra un pele.</p><details><summary>Mode&#316;u autori</summary><ul><li><a href="https://sketchfab.com/3d-models/5-storey-residential-building-3468ccfd9e35495fb377f7c6d67518ae" target="_blank" rel="noopener">5 storey residential building</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/3-storey-residential-building-f4826003d4594cd6b85dc2f99a93669b" target="_blank" rel="noopener">3 storey residential building</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/rusty-street-electrical-boxes-1-7d8e1afe6e8542de8293cdf9d8c0e544" target="_blank" rel="noopener">Rusty street electrical boxes #1</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/rusty-street-electrical-box-2-56fb5864754044e1bca7ad7af55f7a4c" target="_blank" rel="noopener">Rusty Street Electrical Box #2</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/zaz-tavria-pick-up-8372da4079ed494ba4da5c182bbdec96" target="_blank" rel="noopener">ZAZ tavria pick-up</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/vendingmachine-coffeemachine-5a617f5356104708b65ee9e99113c66e" target="_blank" rel="noopener">vendingmachine + coffeemachine</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/abandoned-trailers-516e2f965a6e4ef0b80204da0afb20ec" target="_blank" rel="noopener">abandoned trailers</a> &middot; bean(alwayshasbean)</li><li><a href="https://sketchfab.com/3d-models/zhiguli-soviet-cars-7c3f4bee5d37401d853d2206dc7859fc" target="_blank" rel="noopener">Zhiguli Soviet Cars</a> &middot; spacelynxcanfly</li><li><a href="https://sketchfab.com/3d-models/moskvich-412-abandoned-d35b98a38a0545c59d724ecdc70b254f" target="_blank" rel="noopener">Moskvich 412 Abandoned</a> &middot; DANYA23K</li><li><a href="https://sketchfab.com/3d-models/uaz-452-4f45aa2e9180437b9687b3d567069ca9" target="_blank" rel="noopener">Uaz 452</a> &middot; Sergey Egelsky</li><li><a href="https://sketchfab.com/3d-models/soviet-garage-with-graffiti-d85ccef21f36454487f3639cb10050ab" target="_blank" rel="noopener">Soviet garage with graffiti</a> &middot; NaN_4aki</li><li><a href="https://sketchfab.com/3d-models/transformer-substation-with-murals-2f3fb2f4fb6048d8b463fa530fc38ca1" target="_blank" rel="noopener">Transformer substation with murals</a> &middot; Ivan-Kanaev</li><li><a href="https://sketchfab.com/3d-models/simple-90s-kiosk-a04e69a838054f7cb39a635943ab9b0d" target="_blank" rel="noopener">Simple 90&#x27;s Kiosk</a> &middot; Vagabondare</li><li><a href="https://sketchfab.com/3d-models/rusty-soviet-slide-ed352ad8725a47c79c786ddc398936ed" target="_blank" rel="noopener">Rusty Soviet Slide</a> &middot; shtran</li><li><a href="https://sketchfab.com/3d-models/seesaw-type-1-9855438bf7d14f9b8a83e779c03e937f" target="_blank" rel="noopener">Seesaw &quot;Type-1&quot;</a> &middot; targa</li><li><a href="https://sketchfab.com/3d-models/abandoned-carousel-f472e10e4ed54bd5a0871da3ec753fcc" target="_blank" rel="noopener">Abandoned Carousel</a> &middot; sergeilihandristov</li><li><a href="https://sketchfab.com/3d-models/ussr-swings-57f6c19b214e440e8b9865f648102472" target="_blank" rel="noopener">USSR Swings</a> &middot; TheLastCookie-404</li><li><a href="https://sketchfab.com/3d-models/bench-6-ussr-game-ready-12e4fb18364a4590862eb871c60c6b45" target="_blank" rel="noopener">Bench 6 USSR (Game ready)</a> &middot; Nikita Filimonov</li><li><a href="https://sketchfab.com/3d-models/old-soviet-dumpster-a863d44376084461a3e105b3ff3e9a10" target="_blank" rel="noopener">Old Soviet dumpster</a> &middot; Padre_UA.dn</li><li><a href="https://sketchfab.com/3d-models/soviet-concrete-block-56048809e088492b992984172287779b" target="_blank" rel="noopener">Soviet concrete block</a> &middot; Henry VIII</li><li><a href="https://sketchfab.com/3d-models/lowpoly-concrete-barrier-e0fb4ba5ee434433bbdb4a16aaa2f8fb" target="_blank" rel="noopener">Lowpoly Concrete Barrier</a> &middot; qb</li><li><a href="https://sketchfab.com/3d-models/wooden-crate-e12fde1101b84b6da40056336a7b309d" target="_blank" rel="noopener">Wooden Crate</a> &middot; YadroGames</li><li><a href="https://sketchfab.com/3d-models/barrel-efc2e72aec0f441692e0e78cb61cfa42" target="_blank" rel="noopener">Barrel</a> &middot; Joel Wood</li><li><a href="https://sketchfab.com/3d-models/abandoned-car-tires-pile-game-ready-low-poly-e11eaddca6bb4e629e7a11eadbcd2679" target="_blank" rel="noopener">Abandoned Car Tires Pile - Game Ready Low-Poly</a> &middot; fumestic</li><li><a href="https://sketchfab.com/3d-models/tape-recorder-64459758b6514a8abf0e7658df57976c" target="_blank" rel="noopener">Tape_recorder</a> &middot; VitaliyMelnychuk</li><li><a href="https://sketchfab.com/3d-models/ammo-box-05df245c7a7d4db1b6303ce57a9b0529" target="_blank" rel="noopener">Ammo box</a> &middot; Hurricane</li><li><a href="https://sketchfab.com/3d-models/rusty-streetlight-d75f8d8a26054e3584f55eb07644801a" target="_blank" rel="noopener">Rusty Streetlight</a> &middot; barbodoji</li><li><a href="https://sketchfab.com/3d-models/pripyat-chainlink-fence-35adb2f2461c4d30bc94e803bb50de50" target="_blank" rel="noopener">Pripyat chainlink fence</a> &middot; Nicolai Kilstrup</li><li><a href="https://sketchfab.com/3d-models/realistic-tree-2-free-2cd58e603ae542c78dd9cada46496921" target="_blank" rel="noopener">Realistic Tree 2 Free</a> &middot; Next Spring (rudens kr&#257;s&#257;s)</li><li><a href="https://sketchfab.com/3d-models/real-tree-models-251236ab35764ac9bed017691bac17ea" target="_blank" rel="noopener">Real Tree Models</a> &middot; Mega Tree (rudens kr&#257;s&#257;s)</li><li><a href="https://sketchfab.com/3d-models/bush-844e6a315757431da97efb5f17383bb5" target="_blank" rel="noopener">bush</a> &middot; lev26 (rudens kr&#257;s&#257;s)</li><li><a href="https://sketchfab.com/3d-models/ground-full-of-yellow-autumn-leaves-c919885e353042ebaa2895aeb499f56b" target="_blank" rel="noopener">Ground full of yellow autumn leaves</a> &middot; Tijer&#237;n Art Studio</li><li><a href="https://sketchfab.com/3d-models/autumn-leaves-2ba028253c9241a38d4ab6d7bc63fb72" target="_blank" rel="noopener">Autumn Leaves</a> &middot; RBG_illustrations</li><li><a href="https://sketchfab.com/3d-models/leaf-pile-low-poly-5a76271ca6ff4af7ae655b3e382ff2a5" target="_blank" rel="noopener">Leaf Pile Low Poly</a> &middot; PolyDavid</li><li><a href="https://sketchfab.com/3d-models/low-poly-model-for-water-puddles-2890f047e7f842908994fc90b7ce89c8" target="_blank" rel="noopener">Low Poly Model for Water Puddles</a> &middot; AlexMuseMatrix</li><li><a href="https://sketchfab.com/3d-models/low-poly-puddle-1b6132426e154eec994e3b59c65a2a07" target="_blank" rel="noopener">Low Poly - Puddle</a> &middot; Wyboo</li><li><a href="https://sketchfab.com/3d-models/soil-full-of-dry-rough-grass-b52a588fb38d4622946c3cbb84e77f7d" target="_blank" rel="noopener">Soil full of dry rough grass</a> &middot; Tijer&#237;n Art Studio</li><li><a href="https://sketchfab.com/3d-models/texture-of-old-black-asphalt-highly-degraded-2a308d1829ec4f5ba11e9e7a780159ce" target="_blank" rel="noopener">Texture of old black asphalt highly degraded</a> &middot; Tijer&#237;n Art Studio</li>     <li><a href="https://sketchfab.com/3d-models/03d9062085214988b2e984470c7c0d28" target="_blank" rel="noopener">Dusty Beer Bottle</a> &middot; Coozy (GameDevNick)</li><li><a href="https://sketchfab.com/3d-models/c5c009d8f7e6473c8eea32cbf5bab14e" target="_blank" rel="noopener">Empty beer bottles</a> &middot; Ricardo Sanchez</li><li><a href="https://sketchfab.com/3d-models/24329e92a51b41f690fe4bfbd510c9f3" target="_blank" rel="noopener">Dirty Beer Plastic Crate</a> &middot; Mouch (Mountrise)</li><li><a href="https://sketchfab.com/3d-models/2527cdd4e465404a9e049171f506fc14" target="_blank" rel="noopener">Delicious Polish vodka bottle</a> &middot; Marcin.Kwiatkowski</li><li><a href="https://sketchfab.com/3d-models/a3c190342c6a4ea2b7fd0428ee1c0d97" target="_blank" rel="noopener">Broken Wine Bottle</a> &middot; Ivan_Valbuena</li><li><a href="https://sketchfab.com/3d-models/e914df64a021484a91613b38c28ee538" target="_blank" rel="noopener">Old dirty mattress</a> &middot; KIFIR</li><li><a href="https://sketchfab.com/3d-models/01334b80dd514487bc00d1b00eba449c" target="_blank" rel="noopener">Газеты | The Object soviet newspaper props</a> &middot; Vladislav Horiainov (gradislav23)</li><li><a href="https://sketchfab.com/3d-models/007ee720b1494bdcbb59afbb13c34762" target="_blank" rel="noopener">BelomorKanal | LastLine game</a> &middot; Vladislav Horiainov (gradislav23)</li><li><a href="https://sketchfab.com/3d-models/e3c563dd388b4edabe4dea1b27da9746" target="_blank" rel="noopener">An old pack of PRIMA cigarettes</a> &middot; Сверкающая Звезда (Bogdan_7786_778)</li><li><a href="https://sketchfab.com/3d-models/865b2169516042f3a2965ca7b672fe74" target="_blank" rel="noopener">Treska</a> &middot; Сверкающая Звезда (Bogdan_7786_778)</li><li><a href="https://sketchfab.com/3d-models/72f334ea017840209f53998c8c2792b9" target="_blank" rel="noopener">Audio Cassettes (Low Poly)</a> &middot; Mobius1</li><li><a href="https://sketchfab.com/3d-models/f19ac18e45c545208e5118d5fce50b06" target="_blank" rel="noopener">Cigarette butt from Poly by Google</a> &middot; Poly by Google, uploaded by IronEqual</li><li><a href="https://sketchfab.com/3d-models/just-man-e77a26778dc14b3c8f4838fe6a827dc3" target="_blank" rel="noopener">Just man</a> &middot; vrimen</li><li><a href="https://sketchfab.com/3d-models/enemy1-b7fc02917e0348f49f5290aaa34cafdb" target="_blank" rel="noopener">Enemy1</a> &middot; bumstrum</li><li><a href="https://sketchfab.com/3d-models/terrorist-ccce1abd9086451da3bed9ec30c82c37" target="_blank" rel="noopener">terrorist</a> &middot; bumstrum</li><li><a href="https://kevdev.itch.io/human-soldier-animations-free" target="_blank" rel="noopener">Human Soldier Animations FREE (animations)</a> &middot; Kevin Iglesias</li><li><a href="https://quaternius.com/packs/universalanimationlibrary.html" target="_blank" rel="noopener">Universal Animation Library (crouch)</a> &middot; Quaternius (CC0)</li><li><a href="https://sketchfab.com/3d-models/glock-gun-3d-model-free-download-d1f6b5d6902d4a7fb735881d3ece250a" target="_blank" rel="noopener">Glock Gun 3d Model Free Download</a> &middot; thronetools</li><li><a href="https://sketchfab.com/3d-models/6797fec788fe4c8a95841c38e49263e0" target="_blank" rel="noopener">Makarov PM</a> &middot; sh4m4n</li><li><a href="https://sketchfab.com/3d-models/fe8b79ae8a8142fb9ba706912c6b9df8" target="_blank" rel="noopener">AKM</a> &middot; Armored Wave</li><li><a href="https://sketchfab.com/3d-models/955a7d1a195848b990bd8362396375bd" target="_blank" rel="noopener">Sawed-off Shotgun</a> &middot; AnonyTheDrone</li><li><a href="https://sketchfab.com/3d-models/c86c724d29214d199727efa9e679fd4a" target="_blank" rel="noopener">F1 Grenade</a> &middot; sh4m4n</li><li><a href="https://binbun3d.itch.io/godot-skies" target="_blank" rel="noopener">Godot Skies (sky shader)</a> &middot; Binbun (CC0)</li><li><a href="https://fonts.google.com/specimen/PT+Sans+Narrow" target="_blank" rel="noopener">PT Sans Narrow (fonts)</a> &middot; ParaType (OFL)</li><li><a href="https://fonts.google.com/specimen/Special+Elite" target="_blank" rel="noopener">Special Elite (fonts)</a> &middot; Astigmatic (Apache 2.0)</li><li><a href="https://www.keshikan.net/fonts-e.html" target="_blank" rel="noopener">DSEG7 (fonts)</a> &middot; keshikan (OFL)</li></ul></details></div>
+</div>
+<div id="warn"></div>
+<button type="button" id="fullscreen" title="Pilnekr&#257;ns (F)" aria-label="Pilnekr&#257;ns (F)">
+  <svg class="enter" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M2 7V2h5M11 2h5v5M16 11v5h-5M7 16H2v-5"/></svg>
+  <svg class="exit" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M7 2v5H2M16 7h-5V2M11 16v-5h5M2 11h5v5"/></svg>
+</button>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("unity-canvas");
+    var loading = document.getElementById("loading");
+    var loadText = document.getElementById("loadText");
+    var barFill = document.getElementById("barFill");
+    var warn = document.getElementById("warn");
+    var instance = null;
+
+    function showBanner(msg, type) {
+      var div = document.createElement("div");
+      div.textContent = msg;
+      warn.appendChild(div);
+      if (type === "error") {
+        loading.hidden = false;
+        loadText.className = "err";
+        loadText.textContent = msg;
+      } else {
+        setTimeout(function () { if (div.parentNode) div.parentNode.removeChild(div); }, 5000);
+      }
+    }
+
+    var build = "Build";
+    // The scene data is published in two chunks (hosting caps single files); they are joined back into one blob here.
+    var dataParts = [build + "/data_1_17_2_1.wasm", build + "/data_1_17_2_2.wasm", build + "/data_1_17_2_3.wasm", build + "/data_1_17_2_4.wasm", build + "/data_1_17_2_5.wasm", build + "/data_1_17_2_6.wasm", build + "/data_1_17_2_7.wasm", build + "/data_1_17_2_8.wasm", build + "/data_1_17_2_9.wasm", build + "/data_1_17_2_10.wasm", build + "/data_1_17_2_11.wasm", build + "/data_1_17_2_12.wasm"];
+    var codeParts = [build + "/code_1_17_2_1.wasm", build + "/code_1_17_2_2.wasm"];
+    var config = {
+      arguments: [],
+      dataUrl: null,
+      frameworkUrl: build + "/framework.js",
+      codeUrl: null,
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "Reketieris",
+      productName: "Reketieris",
+      productVersion: "1.17.2",
+      showBanner: showBanner,
+      // Unity's default handler opens a blocking alert() for any uncaught error (a refused pointer lock, say); log it instead.
+      errorHandler: function (message) { console.error("Unity: " + message); return true; },
+      // Retina screens would otherwise render 4x the pixels; the game picks its own quality on top (AutoQuality).
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5)
+    };
+
+    function setProgress(fraction, label) {
+      barFill.style.width = Math.round(fraction * 100) + "%";
+      loadText.textContent = label;
+    }
+
+    var partCache = {};
+    function joinParts(urls) {
+      return Promise.all(urls.map(function (u) { return partCache[u]; })).then(function (blobs) { return new Blob(blobs); });
+    }
+
+    function fetchParts(urls, onProgress) {
+      var loaded = 0, total = 0;
+      return Promise.all(urls.map(function (url) {
+        return fetch(url).then(function (res) {
+          if (!res.ok) throw new Error(url + " returned " + res.status);
+          total += Number(res.headers.get("Content-Length")) || 8000000;
+          var reader = res.body.getReader(), chunks = [];
+          function pump() {
+            return reader.read().then(function (r) {
+              if (r.done) { partCache[url] = new Blob(chunks); return partCache[url]; }
+              chunks.push(r.value);
+              loaded += r.value.length;
+              onProgress(Math.min(1, loaded / total));
+              return pump();
+            });
+          }
+          return pump();
+        });
+      })).then(function (blobs) { return new Blob(blobs); });
+    }
+
+    function boot() {
+      // Data and engine code are both published in chunks (hosting caps single files); join them into blobs.
+      fetchParts(dataParts.concat(codeParts), function (f) {
+        setProgress(f * 0.6, "Iel\u0101d\u0113 pils\u0113tu\u2026 " + Math.round(f * 60) + "%");
+      }).then(function () {
+        return Promise.all([joinParts(dataParts), joinParts(codeParts)]);
+      }).then(function (blobs) {
+        config.dataUrl = URL.createObjectURL(blobs[0]);
+        config.codeUrl = URL.createObjectURL(blobs[1]);
+        return createUnityInstance(canvas, config, function (progress) {
+          var f = 0.6 + progress * 0.4;
+          setProgress(f, progress < 0.9 ? "Iel\u0101d\u0113 pils\u0113tu\u2026 " + Math.round(f * 100) + "%" : "Iedarbina dzin\u0113jus\u2026");
+        });
+      }).then(function (unity) {
+        instance = unity;
+        window.racketeerUnity = unity; // lets the automated test reach the game
+        loading.hidden = true;
+        canvas.focus();
+      }).catch(function (err) {
+        showBanner("Sp\u0113li neizdev\u0101s palaist: " + err + ". M\u0113\u0123ini dator\u0101 ar Chrome, Edge vai Firefox.", "error");
+      });
+    }
+
+    var script = document.createElement("script");
+    script.src = build + "/WebGL.loader.js";
+    script.onload = boot;
+    script.onerror = function () {
+      showBanner("Neizdev\u0101s iel\u0101d\u0113t sp\u0113les failus. P\u0101rl\u0101d\u0113 lapu un m\u0113\u0123ini v\u0113lreiz.", "error");
+    };
+    document.body.appendChild(script);
+
+    // Fullscreen: the corner button, or F on the keyboard (the game itself never uses F). Toggles both ways.
+    var fsButton = document.getElementById("fullscreen");
+    function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+    function toggleFullscreen() {
+      if (isFullscreen()) {
+        if (instance) instance.SetFullscreen(0);
+        else if (document.exitFullscreen) document.exitFullscreen().catch(function () {});
+        return;
+      }
+      if (instance) { instance.SetFullscreen(1); return; }
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {});
+    }
+    fsButton.addEventListener("click", function () { toggleFullscreen(); fsButton.blur(); canvas.focus(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.code !== "KeyF" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      toggleFullscreen();
+    }, true);
+    function syncFullscreen() { fsButton.classList.toggle("on", isFullscreen()); }
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncFullscreen);
+  })();
+</script>
+
+</body></html>
